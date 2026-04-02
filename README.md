@@ -31,7 +31,7 @@ The tools in this repository share a unified, user-friendly interface designed f
 All plot scripts are located in the `plot/` directory. You can access them via the index page or navigate to them directly.
 
 ### 🎻 1. Single-Class Violin Plot with Significance
-**File:** [`plot/violin-single-class.html`](plot/violin-single-class.html)
+**File:** [`plot/violin-single-class.html`](ks-c.github.io/pretty-plots/plot/violin-single-class.html)
 
 A powerful tool to generate publication-ready violin plots with internal boxplots. 
 *   **Auto-Statistics:** Automatically calculates Welch's t-test for pairwise comparisons and estimates P-values.
