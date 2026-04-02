@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>节点影响力批量绘图 - Pretty Plots</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .modebar-btn[data-title="Produced with Plotly"] { display: none !important; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dataset-card { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gray-100 flex h-screen overflow-hidden">
+
+    <div class="w-[420px] bg-white shadow-xl flex flex-col z-10 border-r border-gray-200 shrink-0">
+        <div class="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
+            <h1 class="text-lg font-bold text-gray-800">🕸️ 节点分析图参数</h1>
+            <button id="drawBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-1.5 px-4 rounded shadow transition">
+                🚀 生成图表
+            </button>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-5 space-y-6">
+            
+            <div class="space-y-3">
+                <div class="flex justify-between items-end border-b pb-1">
+                    <h2 class="text-md font-bold text-blue-600">1. 数据源管理 (多文件)</h2>
+                    <label class="cursor-pointer bg-green-100 hover:bg-green-200 text-green-700 text-xs font-bold py-1 px-2 rounded">
+                        + 添加文件
+                        <input type="file" id="fileUpload" accept=".xlsx, .xls, .csv" multiple class="hidden"/>
+                    </label>
+                </div>
+                <p class="text-xs text-gray-500 leading-tight">上传包含 node, measure, value 的数据。<br>各文件代表不同分组。面板随文件增多自然向下延展。</p>
+                
+                <div id="datasetList" class="space-y-2">
+                    <p id="noDataMsg" class="text-xs text-gray-400 italic text-center py-4 bg-gray-50 rounded border border-dashed">暂无数据，请点击上方按钮添加文件</p>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <h2 class="text-md font-bold text-blue-600 border-b pb-1">2. 绘图指标设置 (支持多选)</h2>
+                
+                <div class="bg-blue-50 p-2 rounded border border-blue-100 mb-2">
+                    <label class="text-xs font-bold text-blue-800 block mb-1">🗂️ 图表排列方式 (Layout Mode)</label>
+                    <select id="layoutMode" class="border p-1.5 rounded text-xs w-full bg-white text-blue-900 border-blue-300">
+                        <option value="separate">1. 独立多图 (每个指标生成一张完全独立的大图)</option>
+                        <option value="subplots">2. 并排网格子图 (推荐：共享Y轴节点，横向分布)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-gray-700">勾选需要同时绘制的 Measure</label>
+                    <div id="measureCheckboxes" class="flex flex-wrap gap-2 mt-2">
+                        <span class="text-xs text-gray-400 italic">请先上传数据...</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">连线粗细 (Line Width)</label>
+                        <input type="number" id="globalLineWidth" class="mt-1 border p-1.5 rounded text-xs w-full" value="2" step="0.5">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">标记点大小 (Marker Size)</label>
+                        <input type="number" id="globalMarkerSize" class="mt-1 border p-1.5 rounded text-xs w-full" value="8" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <h2 class="text-md font-bold text-blue-600 border-b pb-1">3. 画布尺寸与全局样式</h2>
+                
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="col-span-2 p-2 bg-gray-50 border border-gray-200 rounded">
+                        <label class="text-xs font-bold text-gray-700 block mb-1">📐 出版级尺寸设置 (像素 px)</label>
+                        <div class="flex gap-2">
+                            <div class="flex-1">
+                                <span class="text-xs text-gray-500">大图总宽度 (Width)</span>
+                                <input type="number" id="plotWidth" class="mt-1 border p-1.5 rounded text-xs w-full" value="450">
+                            </div>
+                            <div class="flex-1">
+                                <span class="text-xs text-gray-500">大图总高度 (Height)</span>
+                                <input type="number" id="plotHeight" class="mt-1 border p-1.5 rounded text-xs w-full" value="800">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-span-2 mt-1">
+                        <label class="text-xs font-semibold text-gray-700">全局字体 (Font Family)</label>
+                        <select id="fontFamily" class="mt-1 border p-1.5 rounded text-xs w-full bg-gray-50">
+                            <option value="Arial, sans-serif">Arial</option>
+                            <option value="'Times New Roman', Times, serif">Times New Roman</option>
+                            <option value="'Helvetica Neue', Helvetica, sans-serif">Helvetica</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-span-2">
+                        <label class="text-xs font-semibold text-gray-700">主标题基础文本</label>
+                        <input type="text" id="chartTitle" class="mt-1 border p-1.5 rounded text-xs w-full" value="Node Influence Analysis">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">X轴标签</label>
+                        <input type="text" id="xLabel" class="mt-1 border p-1.5 rounded text-xs w-full" value="Value">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">Y轴标签</label>
+                        <input type="text" id="yLabel" class="mt-1 border p-1.5 rounded text-xs w-full" value="">
+                    </div>
+                    
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">标题字号</label>
+                        <input type="number" id="titleSize" class="mt-1 border p-1.5 rounded text-xs w-full" value="18">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">轴标签字号</label>
+                        <input type="number" id="labelSize" class="mt-1 border p-1.5 rounded text-xs w-full" value="14">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">刻度字号</label>
+                        <input type="number" id="tickSize" class="mt-1 border p-1.5 rounded text-xs w-full" value="12">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">背景网格线</label>
+                        <select id="showGrid" class="mt-1 border p-1.5 rounded text-xs w-full">
+                            <option value="all">显示全部网格 (默认)</option>
+                            <option value="x">仅垂直网格 (X轴)</option>
+                            <option value="y">仅水平网格 (Y轴)</option>
+                            <option value="none">关闭所有网格</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">四周外边框粗细</label>
+                        <input type="number" id="borderWidth" class="mt-1 border p-1.5 rounded text-xs w-full" value="1.5" step="0.5" min="0">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">边框颜色</label>
+                        <input type="color" id="borderColor" class="mt-1 border p-1 rounded text-xs w-full h-8" value="#000000">
+                    </div>
+
+                    <div class="col-span-2">
+                        <label class="text-xs font-semibold text-gray-700">图例位置</label>
+                        <select id="legendPosition" class="mt-1 border p-1.5 rounded text-xs w-full bg-gray-50">
+                            <option value="bottom">底部 (Bottom)</option>
+                            <option value="right">右侧 (Right)</option>
+                            <option value="top">顶部 (Top)</option>
+                            <option value="none">隐藏图例 (Hide)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 border-t bg-gray-50 flex gap-2 shrink-0">
+            <button onclick="downloadPlots('png')" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded shadow transition">⬇️ 一键导出 PNG</button>
+            <button onclick="downloadPlots('svg')" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white text-xs font-bold py-2 rounded shadow transition">⬇️ 一键导出 SVG</button>
+        </div>
+    </div>
+
+    <div class="flex-1 bg-gray-200 overflow-y-auto p-8 flex flex-col items-center">
+        <p id="placeholder" class="text-gray-400 text-lg tracking-wider text-center mt-20">
+            请在左侧添加数据文件并配置参数<br><span class="text-sm">支持网格子图和独立多图两种排版</span>
+        </p>
+        
+        <div id="chartsWrapper" class="w-full flex flex-col items-center gap-10 pb-10"></div>
+    </div>
+
+    <script>
+        let datasets = []; 
+        let uniqueMeasures = new Set();
+        let colorPalette = ['#FF7F0E', '#1F77B4', '#2CA02C', '#D62728', '#9467BD', '#8C564B', '#E377C2', '#7F7F7F'];
+        let datasetCounter = 0;
+
+        document.getElementById('fileUpload').addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rawData = XLSX.utils.sheet_to_json(worksheet);
+                    const standardizedData = rawData.map(row => {
+                        let newRow = {};
+                        for (let key in row) { newRow[key.trim().toLowerCase()] = row[key]; }
+                        return newRow;
+                    });
+                    addDataset(file.name, standardizedData);
+                };
+                reader.readAsArrayBuffer(file);
+            });
+            e.target.value = '';
+        });
+
+        function addDataset(fileName, data) {
+            const defaultName = fileName.replace(/\.[^/.]+$/, ""); 
+            const dsColor = colorPalette[datasetCounter % colorPalette.length];
+            const id = 'ds_' + Date.now() + '_' + datasetCounter;
+            
+            datasets.push({
+                id: id, fileName: fileName, groupName: defaultName,
+                color: dsColor, symbol: 'circle', lineStyle: 'solid', rawData: data
+            });
+
+            datasetCounter++;
+            updateMeasures();
+            renderDatasetUI();
+        }
+
+        function updateMeasures() {
+            uniqueMeasures.clear();
+            datasets.forEach(ds => {
+                ds.rawData.forEach(row => { if (row.measure) uniqueMeasures.add(row.measure); });
+            });
+
+            const container = document.getElementById('measureCheckboxes');
+            if (uniqueMeasures.size === 0) {
+                container.innerHTML = '<span class="text-xs text-gray-400 italic">未找到 measure 列</span>';
+                return;
+            }
+
+            container.innerHTML = '';
+            uniqueMeasures.forEach((m) => {
+                const label = document.createElement('label');
+                label.className = "inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-800 text-xs px-2.5 py-1.5 rounded cursor-pointer hover:bg-blue-100 transition-colors";
+                // 默认全部勾选
+                const isChecked = 'checked'; 
+                label.innerHTML = `<input type="checkbox" class="measure-check cursor-pointer" value="${m}" ${isChecked}> <span class="font-semibold">${m}</span>`;
+                container.appendChild(label);
+            });
+        }
+
+        function renderDatasetUI() {
+            const container = document.getElementById('datasetList');
+            const placeholder = document.getElementById('noDataMsg');
+            
+            if (datasets.length === 0) {
+                container.innerHTML = ''; container.appendChild(placeholder); placeholder.style.display = 'block'; return;
+            }
+
+            container.innerHTML = '';
+            datasets.forEach((ds) => {
+                const div = document.createElement('div');
+                div.className = "dataset-card bg-white border border-gray-200 p-3 rounded shadow-sm relative";
+                div.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-bold text-gray-800 truncate w-32" title="${ds.fileName}">📄 ${ds.fileName}</span>
+                        <button onclick="removeDataset('${ds.id}')" class="text-red-500 hover:text-red-700 text-xs font-bold">删除</button>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500 w-8">组名</span>
+                            <input type="text" value="${ds.groupName}" class="border rounded text-xs p-1 flex-1 bg-gray-50" onchange="updateDatasetProp('${ds.id}', 'groupName', this.value)">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500 w-8">颜色</span>
+                            <input type="color" value="${ds.color}" class="border rounded text-xs p-0 h-6 w-full cursor-pointer" onchange="updateDatasetProp('${ds.id}', 'color', this.value)">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500 w-8">形状</span>
+                            <select class="border rounded text-xs p-1 flex-1 bg-gray-50" onchange="updateDatasetProp('${ds.id}', 'symbol', this.value)">
+                                <option value="circle" ${ds.symbol==='circle'?'selected':''}>圆形 (Circle)</option>
+                                <option value="square" ${ds.symbol==='square'?'selected':''}>方形 (Square)</option>
+                                <option value="diamond" ${ds.symbol==='diamond'?'selected':''}>菱形 (Diamond)</option>
+                                <option value="triangle-up" ${ds.symbol==='triangle-up'?'selected':''}>正三角 (Triangle)</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500 w-8">线型</span>
+                            <select class="border rounded text-xs p-1 flex-1 bg-gray-50" onchange="updateDatasetProp('${ds.id}', 'lineStyle', this.value)">
+                                <option value="solid" ${ds.lineStyle==='solid'?'selected':''}>实线 (Solid)</option>
+                                <option value="dash" ${ds.lineStyle==='dash'?'selected':''}>虚线 (Dash)</option>
+                                <option value="dot" ${ds.lineStyle==='dot'?'selected':''}>点线 (Dot)</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        window.removeDataset = function(id) { datasets = datasets.filter(d => d.id !== id); updateMeasures(); renderDatasetUI(); };
+        window.updateDatasetProp = function(id, prop, value) { const ds = datasets.find(d => d.id === id); if (ds) ds[prop] = value; };
+
+        function getTraceData(dataset, measureName) {
+            const filteredData = dataset.rawData.filter(row => row.measure === measureName);
+            const xValues = [], yValues = [];
+            filteredData.forEach(row => {
+                if (row.node !== undefined && row.value !== undefined) {
+                    xValues.push(parseFloat(row.value)); yValues.push(row.node);
+                }
+            });
+            return { xValues, yValues };
+        }
+
+        document.getElementById('drawBtn').addEventListener('click', function() {
+            if (datasets.length === 0) { alert("请至少上传一个数据文件！"); return; }
+            const checkedCheckboxes = document.querySelectorAll('.measure-check:checked');
+            if (checkedCheckboxes.length === 0) { alert("请至少勾选一个绘图指标 (Measure)！"); return; }
+
+            const layoutMode = document.getElementById('layoutMode').value;
+            const measures = Array.from(checkedCheckboxes).map(cb => cb.value);
+
+            const baseTitle = document.getElementById('chartTitle').value;
+            const xLabel = document.getElementById('xLabel').value;
+            const yLabel = document.getElementById('yLabel').value;
+            const fontFamily = document.getElementById('fontFamily').value;
+            const titleSize = parseInt(document.getElementById('titleSize').value);
+            const labelSize = parseInt(document.getElementById('labelSize').value);
+            const tickSize = parseInt(document.getElementById('tickSize').value);
+            const showGrid = document.getElementById('showGrid').value;
+            const borderWidth = parseFloat(document.getElementById('borderWidth').value);
+            const borderColor = document.getElementById('borderColor').value;
+            const legendPos = document.getElementById('legendPosition').value;
+            const gLineWidth = parseFloat(document.getElementById('globalLineWidth').value);
+            const gMarkerSize = parseInt(document.getElementById('globalMarkerSize').value);
+            const plotW = parseInt(document.getElementById('plotWidth').value);
+            const plotH = parseInt(document.getElementById('plotHeight').value);
+
+            let allNodes = new Set();
+            let standardNodeOrder = []; 
+            if(datasets[0]) {
+                datasets[0].rawData.forEach(r => { 
+                    if(r.node && !allNodes.has(r.node)) { standardNodeOrder.push(r.node); allNodes.add(r.node); }
+                });
+            }
+            datasets.forEach(ds => {
+                ds.rawData.forEach(r => { if(r.node && !allNodes.has(r.node)) { standardNodeOrder.push(r.node); allNodes.add(r.node); } });
+            });
+            standardNodeOrder.reverse(); 
+
+            document.getElementById('placeholder').style.display = 'none';
+            const wrapper = document.getElementById('chartsWrapper');
+            wrapper.innerHTML = ''; 
+
+            let legendConfig = { font: { family: fontFamily, size: tickSize } };
+            if (legendPos === 'none') { legendConfig.title = { text: '' }; } 
+            else if (legendPos === 'bottom') { legendConfig.orientation = 'h'; legendConfig.yanchor = 'top'; legendConfig.y = -0.15; legendConfig.xanchor = 'center'; legendConfig.x = 0.5; } 
+            else if (legendPos === 'top') { legendConfig.orientation = 'h'; legendConfig.yanchor = 'bottom'; legendConfig.y = (layoutMode==='subplots' ? 1.15 : 1.05); legendConfig.xanchor = 'center'; legendConfig.x = 0.5; } 
+            else { legendConfig.yanchor = 'auto'; legendConfig.y = 0.5; legendConfig.xanchor = 'left'; legendConfig.x = 1.02; }
+
+
+            // ================= 模式1: 独立多图 (Separate) =================
+            if (layoutMode === 'separate') {
+                measures.forEach((currentMeasure, index) => {
+                    const chartDiv = document.createElement('div');
+                    chartDiv.id = `plotlyChart_${index}`;
+                    chartDiv.setAttribute('data-measure', currentMeasure);
+                    chartDiv.style.width = plotW + 'px'; chartDiv.style.height = plotH + 'px';
+                    chartDiv.className = "shrink-0 border border-gray-200 bg-white shadow-md relative";
+                    wrapper.appendChild(chartDiv);
+
+                    const plotTraces = [];
+                    datasets.forEach(ds => {
+                        const { xValues, yValues } = getTraceData(ds, currentMeasure);
+                        if (xValues.length > 0) {
+                            plotTraces.push({
+                                type: 'scatter', mode: 'lines+markers',
+                                x: xValues, y: yValues, name: ds.groupName,
+                                line: { color: ds.color, width: gLineWidth, dash: ds.lineStyle },
+                                marker: { color: ds.color, size: gMarkerSize, symbol: ds.symbol, line: { color: 'white', width: 1.5 } }
+                            });
+                        }
+                    });
+
+                    const finalTitle = baseTitle ? `${baseTitle} - ${currentMeasure}` : currentMeasure;
+                    const layout = {
+                        title: { text: finalTitle, font: { family: fontFamily, size: titleSize } },
+                        xaxis: { 
+                            title: { text: xLabel, font: { family: fontFamily, size: labelSize } }, 
+                            tickfont: { family: fontFamily, size: tickSize }, 
+                            showgrid: (showGrid === 'x' || showGrid === 'all'), gridcolor: '#e5e7eb', zeroline: false, 
+                            // 修复粗细不同步：同时显式设置ticks
+                            showline: borderWidth > 0, mirror: true, linecolor: borderColor, linewidth: borderWidth,
+                            ticks: 'outside', tickcolor: borderColor, tickwidth: borderWidth
+                        },
+                        yaxis: { 
+                            title: { text: yLabel, font: { family: fontFamily, size: labelSize } }, 
+                            tickfont: { family: fontFamily, size: tickSize }, 
+                            showgrid: (showGrid === 'y' || showGrid === 'all'), gridcolor: '#e5e7eb', zeroline: false, 
+                            // 修复粗细不同步：同时显式设置ticks
+                            showline: borderWidth > 0, mirror: true, linecolor: borderColor, linewidth: borderWidth,
+                            ticks: 'outside', tickcolor: borderColor, tickwidth: borderWidth,
+                            categoryorder: 'array', categoryarray: standardNodeOrder 
+                        },
+                        plot_bgcolor: 'white', paper_bgcolor: 'white', margin: { t: 80, b: legendPos === 'bottom' ? 100 : 60, l: 180, r: 40 },
+                        hovermode: 'closest', showlegend: legendPos !== 'none', legend: legendConfig, width: plotW, height: plotH
+                    };
+                    Plotly.newPlot(chartDiv.id, plotTraces, layout, { responsive: false, displaylogo: false, editable: true, toImageButtonOptions: { format: 'svg' } });
+                });
+            }
+
+            // ================= 模式2: 并排网格子图 (Subplots) 边框彻底修复版 =================
+            else if (layoutMode === 'subplots') {
+                const chartDiv = document.createElement('div');
+                chartDiv.id = `plotlyChart_0`;
+                chartDiv.setAttribute('data-measure', 'Combined_Subplots');
+                chartDiv.style.width = plotW + 'px'; chartDiv.style.height = plotH + 'px';
+                chartDiv.className = "shrink-0 border border-gray-200 bg-white shadow-md relative";
+                wrapper.appendChild(chartDiv);
+
+                const K = measures.length;
+                const gap = K > 1 ? 0.05 : 0;
+                const widthPerPlot = (1 - (K - 1) * gap) / K;
+
+                const plotTraces = [];
+                const layout = {
+                    title: { text: baseTitle, font: { family: fontFamily, size: titleSize } },
+                    plot_bgcolor: 'white', paper_bgcolor: 'white', margin: { t: 100, b: legendPos === 'bottom' ? 100 : 60, l: 180, r: 40 },
+                    hovermode: 'closest', showlegend: legendPos !== 'none', legend: legendConfig, width: plotW, height: plotH,
+                    annotations: []
+                };
+
+                measures.forEach((measureName, i) => {
+                    const start = i * (widthPerPlot + gap);
+                    const end = start + widthPerPlot;
+                    const xName = i === 0 ? 'xaxis' : `xaxis${i + 1}`;
+                    const xId = i === 0 ? 'x' : `x${i + 1}`;
+                    const yName = i === 0 ? 'yaxis' : `yaxis${i + 1}`;
+                    const yId = i === 0 ? 'y' : `y${i + 1}`;
+
+                    // 修复子图边框：增加 anchor 属性绑定，增加 ticks
+                    layout[xName] = { 
+                        domain: [start, end], 
+                        anchor: yId, // 必须通过锚定Y轴确定自身位置
+                        title: { text: xLabel, font: { family: fontFamily, size: labelSize } }, 
+                        tickfont: { family: fontFamily, size: tickSize }, 
+                        showgrid: (showGrid === 'x' || showGrid === 'all'), gridcolor: '#e5e7eb', zeroline: false, 
+                        showline: borderWidth > 0, mirror: true, linecolor: borderColor, linewidth: borderWidth,
+                        ticks: 'outside', tickcolor: borderColor, tickwidth: borderWidth
+                    };
+                    
+                    if (i === 0) {
+                        layout[yName] = { 
+                            anchor: xId, // 必须通过锚定X轴确定自身位置
+                            title: { text: yLabel, font: { family: fontFamily, size: labelSize } }, 
+                            tickfont: { family: fontFamily, size: tickSize }, 
+                            showgrid: (showGrid === 'y' || showGrid === 'all'), gridcolor: '#e5e7eb', zeroline: false, 
+                            showline: borderWidth > 0, mirror: true, linecolor: borderColor, linewidth: borderWidth,
+                            ticks: 'outside', tickcolor: borderColor, tickwidth: borderWidth,
+                            categoryorder: 'array', categoryarray: standardNodeOrder 
+                        };
+                    } else {
+                        layout[yName] = { 
+                            anchor: xId, // 必须通过锚定X轴确定自身位置，否则左右边框不渲染
+                            showticklabels: false, matches: 'y',
+                            showgrid: (showGrid === 'y' || showGrid === 'all'), gridcolor: '#e5e7eb', zeroline: false, 
+                            showline: borderWidth > 0, mirror: true, linecolor: borderColor, linewidth: borderWidth,
+                            ticks: 'outside', tickcolor: borderColor, tickwidth: borderWidth,
+                            categoryorder: 'array', categoryarray: standardNodeOrder 
+                        };
+                    }
+
+                    // 添加子标题
+                    layout.annotations.push({ x: (start + end) / 2, y: 1.05, xref: 'paper', yref: 'paper', text: measureName, showarrow: false, font: { family: fontFamily, size: labelSize, color: 'black' }, xanchor: 'center', yanchor: 'bottom' });
+
+                    datasets.forEach(ds => {
+                        const { xValues, yValues } = getTraceData(ds, measureName);
+                        if (xValues.length > 0) {
+                            plotTraces.push({
+                                type: 'scatter', mode: 'lines+markers',
+                                x: xValues, y: yValues, name: ds.groupName,
+                                legendgroup: ds.groupName, showlegend: (i === 0),     
+                                xaxis: xId, yaxis: yId,
+                                line: { color: ds.color, width: gLineWidth, dash: ds.lineStyle },
+                                marker: { color: ds.color, size: gMarkerSize, symbol: ds.symbol, line: { color: 'white', width: 1.5 } }
+                            });
+                        }
+                    });
+                });
+                Plotly.newPlot(chartDiv.id, plotTraces, layout, { responsive: false, displaylogo: false, editable: true, toImageButtonOptions: { format: 'svg' } });
+            }
+        });
+
+        function downloadPlots(format) {
+            const chartDivs = document.querySelectorAll('[id^="plotlyChart_"]');
+            if (chartDivs.length === 0) { alert('请先生成图表！'); return; }
+            const plotW = parseInt(document.getElementById('plotWidth').value);
+            const plotH = parseInt(document.getElementById('plotHeight').value);
+            chartDivs.forEach((chartDiv, index) => {
+                const measureName = chartDiv.getAttribute('data-measure');
+                setTimeout(() => {
+                    Plotly.downloadImage(chartDiv, { format: format, width: plotW, height: plotH, filename: `Centrality_${measureName}_plot_${Date.now()}` });
+                }, index * 500); 
+            });
+        }
+    </script>
+</body>
+</html>
