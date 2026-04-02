@@ -1,12 +1,13 @@
 # 📊 Pretty-Plots
 
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white)
+！[HTML5]（https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white）  
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
 ![Plotly.js](https://img.shields.io/badge/Plotly.js-3F4F75?style=flat-square&logo=plotly&logoColor=white)
 
 It is a repository of plotting scripts built with simple JS and HTML. It requires zero configuration, relies on no backend servers, and could be launched easily on any platform. Your data never leaves your browser, ensuring 100% privacy.
 
-🌐 **[👉 Click here to visit the Live Preview on GitHub Pages](https://ksc.github.io/pretty-plots/)**
+🌐 **[👉 Click here to visit the Live Preview on GitHub Pages](https://ks-c.github.io/pretty-plots/)**
 
 ---
 
