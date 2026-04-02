@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小提琴图绘制 - Pretty Plots</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .modebar-btn[data-title="Produced with Plotly"] { display: none !important; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-gray-100 flex h-screen overflow-hidden">
+
+    <div class="w-96 bg-white shadow-xl flex flex-col z-10 border-r border-gray-200">
+        <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
+            <h1 class="text-lg font-bold text-gray-800">🎻 小提琴图参数设置</h1>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-5 space-y-6">
+            
+            <div class="space-y-3">
+                <h2 class="text-md font-bold text-blue-600 border-b pb-1">1. 数据与变量</h2>
+                <div>
+                    <label class="text-xs font-semibold text-gray-700">上传 Excel/CSV 数据</label>
+                    <input type="file" id="fileUpload" accept=".xlsx, .xls, .csv" class="mt-1 block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"/>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-gray-700">X轴 (分组/分类变量)</label>
+                    <select id="xVar" class="mt-1 border p-1.5 rounded text-sm w-full bg-gray-50 border-gray-300"></select>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-gray-700">Y轴 (得分/数值变量)</label>
+                    <select id="yVar" class="mt-1 border p-1.5 rounded text-sm w-full bg-gray-50 border-gray-300"></select>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <h2 class="text-md font-bold text-blue-600 border-b pb-1">2. 全局样式与文本</h2>
+                
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="col-span-2">
+                        <label class="text-xs font-semibold text-gray-700">全局字体 (Font Family)</label>
+                        <select id="fontFamily" class="mt-1 border p-1.5 rounded text-xs w-full bg-gray-50">
+                            <option value="Arial, sans-serif">Arial</option>
+                            <option value="'Times New Roman', Times, serif">Times New Roman</option>
+                            <option value="'Helvetica Neue', Helvetica, sans-serif">Helvetica</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-span-2">
+                        <label class="text-xs font-semibold text-gray-700">主标题</label>
+                        <input type="text" id="chartTitle" class="mt-1 border p-1.5 rounded text-xs w-full" value="Total score distribution">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">X轴 标签内容</label>
+                        <input type="text" id="xLabel" class="mt-1 border p-1.5 rounded text-xs w-full" value="Profile">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">Y轴 标签内容</label>
+                        <input type="text" id="yLabel" class="mt-1 border p-1.5 rounded text-xs w-full" value="Total Score">
+                    </div>
+                    
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">标题字号</label>
+                        <input type="number" id="titleSize" class="mt-1 border p-1.5 rounded text-xs w-full" value="18">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">轴标签字号</label>
+                        <input type="number" id="labelSize" class="mt-1 border p-1.5 rounded text-xs w-full" value="14">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">刻度字号</label>
+                        <input type="number" id="tickSize" class="mt-1 border p-1.5 rounded text-xs w-full" value="12">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">背景网格线</label>
+                        <select id="showGrid" class="mt-1 border p-1.5 rounded text-xs w-full">
+                            <option value="y">仅显示Y轴水平网格</option>
+                            <option value="x">仅显示X轴垂直网格</option>
+                            <option value="all">显示全部网格</option>
+                            <option value="none">关闭所有网格</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">四周外边框粗细</label>
+                        <input type="number" id="borderWidth" class="mt-1 border p-1.5 rounded text-xs w-full" value="1.5" step="0.5" min="0">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">边框颜色</label>
+                        <input type="color" id="borderColor" class="mt-1 border p-1 rounded text-xs w-full h-8" value="#000000">
+                    </div>
+
+                    <div class="col-span-2">
+                        <label class="text-xs font-semibold text-gray-700">分组颜色 (十六进制, 逗号分隔)</label>
+                        <input type="text" id="colorPalette" class="mt-1 border p-1.5 rounded text-xs w-full" value="#FCA5B3, #78D5E3, #D6DFF9, #FDE093">
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex justify-between items-center border-b pb-1">
+                    <h2 class="text-md font-bold text-blue-600">3. 显著性标记</h2>
+                    <button id="calcStatsBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs py-1 px-2 rounded">
+                        重新计算对比
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 leading-tight">可直接在图中整体拖动方括号。星号自动转换为上标。</p>
+                <div id="significanceContainer" class="space-y-3 mt-2 max-h-64 overflow-y-auto pr-1">
+                    <p class="text-xs text-gray-400 italic">请先选择变量并生成图表...</p>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="p-4 border-t bg-gray-50 space-y-3">
+            <button id="drawBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow transition duration-150">
+                🚀 生成 / 更新图表
+            </button>
+            <div class="flex gap-2">
+                <button onclick="downloadPlot('png')" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded shadow transition duration-150">⬇️ 下载 PNG</button>
+                <button onclick="downloadPlot('svg')" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white text-xs font-bold py-2 rounded shadow transition duration-150">⬇️ 下载 SVG</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-1 p-6 flex items-center justify-center">
+        <div id="plotContainer" class="w-full h-full bg-white shadow-md rounded flex items-center justify-center border border-gray-300 relative">
+            <p id="placeholder" class="text-gray-400 text-lg tracking-wider">请在左侧上传数据并配置参数</p>
+            <div id="plotlyChart" style="width: 100%; height: 100%; display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let globalData = [];
+        let groupedData = {};
+        let categories = [];
+        let comparisons = []; 
+
+        document.getElementById('fileUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                globalData = XLSX.utils.sheet_to_json(worksheet);
+                
+                if (globalData.length > 0) {
+                    const cols = Object.keys(globalData[0]);
+                    populateDropdowns(cols);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function populateDropdowns(cols) {
+            const xSelect = document.getElementById('xVar');
+            const ySelect = document.getElementById('yVar');
+            xSelect.innerHTML = '<option value="">-- 选择分组变量 --</option>';
+            ySelect.innerHTML = '<option value="">-- 选择数值变量 --</option>';
+            
+            cols.forEach(col => {
+                xSelect.add(new Option(col, col));
+                ySelect.add(new Option(col, col));
+            });
+            if (cols.length >= 2) {
+                xSelect.selectedIndex = 1; 
+                ySelect.selectedIndex = 2; 
+            }
+            updateLabels(); 
+        }
+
+        document.getElementById('xVar').addEventListener('change', updateLabels);
+        document.getElementById('yVar').addEventListener('change', updateLabels);
+        
+        function updateLabels() {
+            const xVal = document.getElementById('xVar').value;
+            const yVal = document.getElementById('yVar').value;
+            if(xVal) document.getElementById('xLabel').value = xVal;
+            if(yVal) document.getElementById('yLabel').value = yVal;
+        }
+
+        function calculateTTest(arr1, arr2) {
+            const mean = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+            const variance = (arr, m) => arr.reduce((a, b) => a + Math.pow(b - m, 2), 0) / (arr.length - 1);
+            
+            const n1 = arr1.length, n2 = arr2.length;
+            const m1 = mean(arr1), m2 = mean(arr2);
+            const v1 = variance(arr1, m1), v2 = variance(arr2, m2);
+            
+            const t = (m1 - m2) / Math.sqrt((v1/n1) + (v2/n2));
+            const df = Math.pow((v1/n1) + (v2/n2), 2) / ( Math.pow(v1/n1, 2)/(n1-1) + Math.pow(v2/n2, 2)/(n2-1) );
+            
+            const p = jStat.ttest(Math.abs(t), df, 2);
+            
+            // 加入 <sup> 标签实现上标
+            let stars = "";
+            if(p < 0.0001) stars = "<sup>****</sup>";
+            else if(p < 0.001) stars = "<sup>***</sup>";
+            else if(p < 0.01) stars = "<sup>**</sup>";
+            else if(p < 0.05) stars = "<sup>*</sup>";
+            else stars = "<sup>(ns)</sup>";
+            
+            return { t: t.toFixed(3), p: p.toFixed(4), stars: stars };
+        }
+
+        function generateSignificanceUI() {
+            const container = document.getElementById('significanceContainer');
+            container.innerHTML = '';
+            comparisons = [];
+
+            let allYValues = [];
+            categories.forEach(cat => { allYValues = allYValues.concat(groupedData[cat]); });
+            const maxY = Math.max(...allYValues);
+            let currentHeightOffset = maxY * 1.05; 
+            const heightStep = (Math.max(...allYValues) - Math.min(...allYValues)) * 0.1; 
+
+            let pairIndex = 0;
+            for (let i = 0; i < categories.length; i++) {
+                for (let j = i + 1; j < categories.length; j++) {
+                    const cat1 = categories[i];
+                    const cat2 = categories[j];
+                    const data1 = groupedData[cat1];
+                    const data2 = groupedData[cat2];
+                    
+                    if(data1.length > 1 && data2.length > 1) {
+                        const stats = calculateTTest(data1, data2);
+                        // defaultText 包含 HTML
+                        const defaultText = `T = ${stats.t} ${stats.stars}`;
+                        
+                        const div = document.createElement('div');
+                        div.className = "bg-gray-50 border border-gray-200 p-2 rounded flex flex-col gap-2 shadow-sm";
+                        div.innerHTML = `
+                            <div class="flex justify-between items-center">
+                                <label class="text-xs font-bold text-gray-700 flex items-center gap-1">
+                                    <input type="checkbox" id="check_${pairIndex}" class="sig-check" checked> 
+                                    ${cat1} vs ${cat2}
+                                </label>
+                                <input type="number" id="height_${pairIndex}" value="${currentHeightOffset.toFixed(1)}" class="border rounded text-xs p-1 w-20 text-center" placeholder="Y轴高度" step="0.5">
+                            </div>
+                            <input type="text" id="text_${pairIndex}" value="${defaultText.replace(/"/g, '&quot;')}" class="border rounded text-xs p-1 w-full" placeholder="标记文字 (支持 <sup>上标</sup>)">
+                            <div class="flex gap-2">
+                                <select id="lineStyle_${pairIndex}" class="border rounded text-xs p-1 flex-1 bg-white">
+                                    <option value="solid">实线 (Solid)</option>
+                                    <option value="dash">虚线 (Dash)</option>
+                                    <option value="dot">点线 (Dot)</option>
+                                </select>
+                                <div class="flex items-center gap-1">
+                                    <span class="text-xs text-gray-500">粗细</span>
+                                    <input type="number" id="lineWidth_${pairIndex}" value="1" class="border rounded text-xs p-1 w-12 text-center" step="0.5" min="0">
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(div);
+                        
+                        comparisons.push({ idx1: i, idx2: j, cat1, cat2, index: pairIndex });
+                        currentHeightOffset += heightStep; 
+                        pairIndex++;
+                    }
+                }
+            }
+        }
+
+        document.getElementById('calcStatsBtn').addEventListener('click', function() {
+            processData();
+            generateSignificanceUI();
+        });
+
+        function processData() {
+            const xVar = document.getElementById('xVar').value;
+            const yVar = document.getElementById('yVar').value;
+            if (!xVar || !yVar) return false;
+
+            groupedData = {};
+            globalData.forEach(row => {
+                let category = row[xVar];
+                let val = parseFloat(row[yVar]);
+                if (category !== undefined && !isNaN(val)) {
+                    category = String(category);
+                    if (!groupedData[category]) groupedData[category] = [];
+                    groupedData[category].push(val);
+                }
+            });
+            categories = Object.keys(groupedData).sort();
+            return true;
+        }
+
+        document.getElementById('drawBtn').addEventListener('click', function() {
+            if (globalData.length === 0) {
+                alert("请先上传数据文件！"); return;
+            }
+            if (!processData()) {
+                alert("请确保正确选择了X轴和Y轴变量！"); return;
+            }
+
+            if (comparisons.length === 0) generateSignificanceUI();
+
+            const title = document.getElementById('chartTitle').value;
+            const xLabel = document.getElementById('xLabel').value;
+            const yLabel = document.getElementById('yLabel').value;
+            const fontFamily = document.getElementById('fontFamily').value;
+            const titleSize = parseInt(document.getElementById('titleSize').value);
+            const labelSize = parseInt(document.getElementById('labelSize').value);
+            const tickSize = parseInt(document.getElementById('tickSize').value);
+            const showGrid = document.getElementById('showGrid').value;
+            
+            // 四周边框参数
+            const borderWidth = parseFloat(document.getElementById('borderWidth').value);
+            const borderColor = document.getElementById('borderColor').value;
+
+            const colorPalette = document.getElementById('colorPalette').value.split(',').map(c => c.trim());
+
+            const plotTraces = [];
+            categories.forEach((cat, index) => {
+                let color = colorPalette[index % colorPalette.length] || '#888888';
+                plotTraces.push({
+                    type: 'violin',
+                    x: groupedData[cat].map(() => index), 
+                    y: groupedData[cat],
+                    name: cat,
+                    box: { visible: true, width: 0.15, fillcolor: 'white', line: { color: 'black', width: 1.5 } },
+                    meanline: { visible: true, color: 'black' },
+                    line: { color: 'black', width: 1.5 },
+                    fillcolor: color,
+                    opacity: 0.8,
+                    points: 'outliers',
+                    marker: { symbol: 'circle', color: 'black', size: 4 },
+                    showlegend: false
+                });
+            });
+
+            let shapes = [];
+            let annotations = [];
+            let globalMaxYForRange = Math.max(...categories.map(c => Math.max(...groupedData[c])));
+
+            comparisons.forEach(comp => {
+                const checkbox = document.getElementById(`check_${comp.index}`);
+                if (checkbox && checkbox.checked) {
+                    const text = document.getElementById(`text_${comp.index}`).value;
+                    const yPos = parseFloat(document.getElementById(`height_${comp.index}`).value);
+                    const lineStyle = document.getElementById(`lineStyle_${comp.index}`).value;
+                    const lineWidth = parseFloat(document.getElementById(`lineWidth_${comp.index}`).value);
+                    
+                    if (yPos > globalMaxYForRange) globalMaxYForRange = yPos;
+
+                    const tickHeight = (globalMaxYForRange * 0.02); // 括号小短腿的长度
+
+                    // 使用 SVG Path 绘制一整个方括号
+                    // M:移动到起点(左短腿底部) -> L:画到左上角 -> L:画到右上角 -> L:画到右短腿底部
+                    shapes.push({
+                        type: 'path',
+                        path: `M ${comp.idx1},${yPos - tickHeight} L ${comp.idx1},${yPos} L ${comp.idx2},${yPos} L ${comp.idx2},${yPos - tickHeight}`,
+                        line: { color: 'black', width: lineWidth, dash: lineStyle }
+                    });
+
+                    annotations.push({
+                        x: (comp.idx1 + comp.idx2) / 2, 
+                        y: yPos + (globalMaxYForRange * 0.015), 
+                        text: text, // Plotly 原生支持 <sup> 标签
+                        showarrow: false,
+                        font: { family: fontFamily, size: tickSize, color: 'black' },
+                        captureevents: true
+                    });
+                }
+            });
+
+            const layout = {
+                title: { text: title, font: { family: fontFamily, size: titleSize } },
+                xaxis: { 
+                    title: { text: xLabel, font: { family: fontFamily, size: labelSize } },
+                    tickfont: { family: fontFamily, size: tickSize },
+                    showgrid: (showGrid === 'x' || showGrid === 'all'), gridcolor: '#e5e7eb', zeroline: false,
+                    tickmode: 'array', tickvals: categories.map((_, i) => i), ticktext: categories,
+                    // 开启四周边框的关键代码 (X轴)
+                    showline: borderWidth > 0, mirror: true, linecolor: borderColor, linewidth: borderWidth
+                },
+                yaxis: { 
+                    title: { text: yLabel, font: { family: fontFamily, size: labelSize } },
+                    tickfont: { family: fontFamily, size: tickSize },
+                    showgrid: (showGrid === 'y' || showGrid === 'all'), gridcolor: '#e5e7eb', zeroline: false,
+                    range: [null, globalMaxYForRange * 1.08],
+                    // 开启四周边框的关键代码 (Y轴)
+                    showline: borderWidth > 0, mirror: true, linecolor: borderColor, linewidth: borderWidth
+                },
+                plot_bgcolor: 'white',
+                paper_bgcolor: 'white',
+                margin: { t: 80, b: 60, l: 80, r: 40 },
+                hovermode: 'closest',
+                shapes: shapes,
+                annotations: annotations
+            };
+
+            const config = {
+                responsive: true,
+                displaylogo: false,
+                editable: true,
+                edits: {
+                    annotationPosition: true, 
+                    annotationText: true,     
+                    titleText: true,          
+                    axisTitleText: true,      
+                    shapePosition: true       // 允许将 Path 作为一个整体框拖动！
+                },
+                toImageButtonOptions: { format: 'svg', filename: 'violin_plot' }
+            };
+
+            document.getElementById('placeholder').style.display = 'none';
+            const chartDiv = document.getElementById('plotlyChart');
+            chartDiv.style.display = 'block';
+
+            Plotly.newPlot('plotlyChart', plotTraces, layout, config);
+        });
+
+        function downloadPlot(format) {
+            const chartDiv = document.getElementById('plotlyChart');
+            if (chartDiv.style.display === 'none' || !chartDiv.data) {
+                alert('请先生成图表！'); return;
+            }
+            Plotly.downloadImage(chartDiv, {
+                format: format,
+                width: 1200, height: 800,
+                filename: `violin_plot_${Date.now()}`
+            });
+        }
+    </script>
+</body>
+</html>
