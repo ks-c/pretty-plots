@@ -19,5 +19,4 @@ A plotting tool for network node influence analysis that supports multi-file gro
 一键识别process输出内容并制作中介效应图。  
 One-click identification of Process output content and generation of mediation effect graphs.
 
-### [Let's try](https://ks-c.github.io/pretty-plots/plots/node-centrality.html)    
-### [ 试试看]（https://ks-c.github.io/pretty-plots/plots/Medation_Model4.html） 
+### [Let's try](https://ks-c.github.io/pretty-plots/plots/Medation_Model4.html)
