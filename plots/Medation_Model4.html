@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中介效应路径图</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .modal { transition: opacity 0.2s ease; }
+        input[type="number"]::-webkit-inner-spin-button { opacity: 1; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex p-4 gap-4 overflow-hidden">
+
+    <!-- 左侧参数配置区 (宽度缩小，更加紧凑) -->
+    <div class="w-[380px] min-w-[360px] bg-white shadow-xl rounded-xl flex flex-col border border-gray-200 overflow-hidden shrink-0">
+        <div class="p-3 border-b bg-gray-50 flex justify-between items-center shrink-0">
+            <h1 class="text-base font-bold text-gray-800">中介效应路径图</h1>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-4 space-y-5">
+            
+            <!-- 变量名称 -->
+            <div>
+                <h2 class="text-sm font-bold text-blue-700 border-b pb-1 mb-2">变量名称</h2>
+                <div class="flex gap-2">
+                    <div class="flex flex-col"><label class="text-[10px] text-gray-500">自变量(X)</label><input type="text" id="varX" value="Perceived Stress" class="w-24 border rounded p-1 text-xs bg-gray-50 text-center"></div>
+                    <div class="flex flex-col"><label class="text-[10px] text-gray-500">中介变量(M)</label><input type="text" id="varM" value="Resilience" class="w-24 border rounded p-1 text-xs bg-gray-50 text-center"></div>
+                    <div class="flex flex-col"><label class="text-[10px] text-gray-500">因变量(Y)</label><input type="text" id="varY" value="Depression" class="w-24 border rounded p-1 text-xs bg-gray-50 text-center"></div>
+                </div>
+            </div>
+
+            <!-- 路径系数与P值 -->
+            <div>
+                <div class="flex justify-between items-end border-b pb-1 mb-2">
+                    <h2 class="text-sm font-bold text-blue-700">路径系数与 P值</h2>
+                    <button onclick="openModal()" class="bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-bold py-1 px-2 rounded transition flex items-center gap-1">
+                        ⚡ 从 PROCESS 提取
+                    </button>
+                </div>
+                <div class="space-y-1.5">
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs font-bold text-gray-600 w-16">X → M (a)</label>
+                        <input type="text" id="coeff_a" value="-0.450" class="w-16 border rounded p-1 text-xs text-center" placeholder="效应">
+                        <input type="text" id="p_a" value="0.000" class="w-16 border rounded p-1 text-xs text-center" placeholder="p值">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs font-bold text-gray-600 w-16">M → Y (b)</label>
+                        <input type="text" id="coeff_b" value="-0.520" class="w-16 border rounded p-1 text-xs text-center" placeholder="效应">
+                        <input type="text" id="p_b" value="0.000" class="w-16 border rounded p-1 text-xs text-center" placeholder="p值">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs font-bold text-gray-600 w-16">X → Y (c')</label>
+                        <input type="text" id="coeff_cp" value="0.120" class="w-16 border rounded p-1 text-xs text-center" placeholder="效应">
+                        <input type="text" id="p_cp" value="0.035" class="w-16 border rounded p-1 text-xs text-center" placeholder="p值">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs font-bold text-gray-600 w-16">X → Y (c)</label>
+                        <input type="text" id="coeff_c" value="0.354" class="w-16 border rounded p-1 text-xs text-center" placeholder="总效应">
+                        <input type="text" id="p_c" value="0.000" class="w-16 border rounded p-1 text-xs text-center" placeholder="p值">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 画布与样式控制 -->
+            <div>
+                <h2 class="text-sm font-bold text-blue-700 border-b pb-1 mb-2">元素样式控制</h2>
+                <div class="grid grid-cols-3 gap-y-2 gap-x-2">
+                    <div class="col-span-1"><label class="text-[10px] text-gray-500 block">全局字体</label><select id="fontFamily" class="w-24 border rounded p-1 text-[10px] bg-gray-50"><option value="'Times New Roman', Times, serif">Times New Roman</option><option value="Arial, sans-serif">Arial</option></select></div>
+                    <div class="col-span-1"><label class="text-[10px] text-gray-500 block">画布宽</label><input type="number" id="canvasW" value="800" step="50" class="w-20 border rounded p-1 text-xs text-center"></div>
+                    <div class="col-span-1"><label class="text-[10px] text-gray-500 block">画布高</label><input type="number" id="canvasH" value="350" step="50" class="w-20 border rounded p-1 text-xs text-center"></div>
+                    
+                    <div class="col-span-1"><label class="text-[10px] text-gray-500 block">节点字号</label><input type="number" id="nodeFontSize" value="16" step="1" class="w-20 border rounded p-1 text-xs text-center"></div>
+                    <div class="col-span-1"><label class="text-[10px] text-gray-500 block">路径字号</label><input type="number" id="pathFontSize" value="15" step="1" class="w-20 border rounded p-1 text-xs text-center"></div>
+                    <div class="col-span-1"><label class="text-[10px] text-gray-500 block">箭头大小</label><input type="number" id="arrowSize" value="10" step="1" class="w-20 border rounded p-1 text-xs text-center"></div>
+                    
+                    <div class="col-span-1"><label class="text-[10px] text-gray-500 block">节点宽</label><input type="number" id="nodeWidth" value="160" step="10" class="w-20 border rounded p-1 text-xs text-center"></div>
+                    <div class="col-span-1"><label class="text-[10px] text-gray-500 block">节点高</label><input type="number" id="nodeHeight" value="50" step="5" class="w-20 border rounded p-1 text-xs text-center"></div>
+                    <div class="col-span-1"><label class="text-[10px] text-gray-500 block">连线粗细</label><input type="number" id="pathWidth" value="1.5" step="0.5" class="w-20 border rounded p-1 text-xs text-center"></div>
+                    
+                    <div class="col-span-1"><label class="text-[10px] text-gray-500 block">边框粗细</label><input type="number" id="strokeWidth" value="1.5" step="0.5" class="w-20 border rounded p-1 text-xs text-center"></div>
+                    <div class="col-span-1"><label class="text-[10px] text-gray-500 block">节点底色</label><input type="color" id="nodeColor" value="#ffffff" class="w-20 border rounded p-0 h-6"></div>
+                    <div class="col-span-1"><label class="text-[10px] text-gray-500 block">线条色</label><input type="color" id="borderColor" value="#000000" class="w-20 border rounded p-0 h-6"></div>
+                </div>
+            </div>
+
+            <!-- 系数位置微调 -->
+            <div>
+                <h2 class="text-sm font-bold text-blue-700 border-b pb-1 mb-2">系数坐标微调 (X/Y偏移)</h2>
+                <div class="space-y-1.5">
+                    <div class="flex items-center gap-2">
+                        <label class="text-[11px] text-gray-600 w-12">a 偏移</label>
+                        <span class="text-[10px] text-gray-400">X:</span><input type="number" id="offAX" value="-30" class="w-14 border rounded p-1 text-xs text-center">
+                        <span class="text-[10px] text-gray-400">Y:</span><input type="number" id="offAY" value="-15" class="w-14 border rounded p-1 text-xs text-center">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-[11px] text-gray-600 w-12">b 偏移</label>
+                        <span class="text-[10px] text-gray-400">X:</span><input type="number" id="offBX" value="30" class="w-14 border rounded p-1 text-xs text-center">
+                        <span class="text-[10px] text-gray-400">Y:</span><input type="number" id="offBY" value="-15" class="w-14 border rounded p-1 text-xs text-center">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-[11px] text-gray-600 w-12">c' 偏移</label>
+                        <span class="text-[10px] text-gray-400">X:</span><input type="number" id="offCX" value="0" class="w-14 border rounded p-1 text-xs text-center">
+                        <span class="text-[10px] text-gray-400">Y:</span><input type="number" id="offCY" value="-10" class="w-14 border rounded p-1 text-xs text-center">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-[11px] text-gray-600 w-12">c 偏移</label>
+                        <span class="text-[10px] text-gray-400">X:</span><input type="number" id="offCTotX" value="0" class="w-14 border rounded p-1 text-xs text-center">
+                        <span class="text-[10px] text-gray-400">Y:</span><input type="number" id="offCTotY" value="25" class="w-14 border rounded p-1 text-xs text-center">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 图表标题 (新增可选功能) -->
+            <div>
+                <h2 class="text-sm font-bold text-blue-700 border-b pb-1 mb-2">图表标题 (可选)</h2>
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                        <label class="text-[11px] text-gray-600 w-12">文本</label>
+                        <input type="text" id="titleText" value="" class="w-48 border rounded p-1 text-xs" placeholder="留空则不显示">
+                    </div>
+                    <div class="grid grid-cols-3 gap-y-2 gap-x-2">
+                        <div class="col-span-1"><label class="text-[10px] text-gray-500 block">X坐标</label><input type="number" id="titleX" value="400" class="w-20 border rounded p-1 text-xs text-center" title="画布宽度一半时居中"></div>
+                        <div class="col-span-1"><label class="text-[10px] text-gray-500 block">Y坐标</label><input type="number" id="titleY" value="330" class="w-20 border rounded p-1 text-xs text-center" title="默认底部"></div>
+                        <div class="col-span-1"><label class="text-[10px] text-gray-500 block">字号</label><input type="number" id="titleSize" value="18" class="w-20 border rounded p-1 text-xs text-center"></div>
+                        <div class="col-span-1"><label class="text-[10px] text-gray-500 block">字体</label><select id="titleFont" class="w-24 border rounded p-1 text-[10px] bg-gray-50"><option value="'Times New Roman', Times, serif">Times New Roman</option><option value="Arial, sans-serif">Arial</option></select></div>
+                        <div class="col-span-1"><label class="text-[10px] text-gray-500 block">颜色</label><input type="color" id="titleColor" value="#000000" class="w-20 border rounded p-0 h-6"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧画板区 -->
+    <div class="flex-1 bg-white shadow-xl rounded-xl border border-gray-200 flex flex-col relative overflow-hidden">
+        <div class="p-3 border-b bg-gray-50 flex justify-between items-center">
+            <span class="font-bold text-gray-700 text-sm">学术图表预览</span>
+            <div class="space-x-2 flex">
+                <button onclick="exportImage('svg')" class="bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200 text-xs py-1 px-3 rounded font-bold transition">SVG</button>
+                <button onclick="exportImage('png')" class="bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 text-xs py-1 px-3 rounded font-bold transition">PNG</button>
+                <button onclick="exportImage('jpeg')" class="bg-yellow-50 hover:bg-yellow-100 text-yellow-600 border border-yellow-200 text-xs py-1 px-3 rounded font-bold transition">JPG</button>
+                <button onclick="exportPDF()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs py-1 px-3 rounded font-bold transition">PDF</button>
+            </div>
+        </div>
+        
+        <div class="flex-1 bg-gray-200 overflow-auto flex items-center justify-center p-6">
+            <div id="svgContainer" class="bg-white shadow-md border border-gray-300"></div>
+        </div>
+    </div>
+
+    <!-- 弹窗：PROCESS解析器 -->
+    <div id="processModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden opacity-0 pointer-events-none">
+        <div class="bg-white rounded-xl shadow-2xl w-[600px] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+                <h3 class="font-bold text-gray-800">⚡ 提取 PROCESS 输出</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-red-500 font-bold text-lg leading-none">&times;</button>
+            </div>
+            <div class="p-4">
+                <p class="text-xs text-gray-500 mb-2">请粘贴 PROCESS 宏输出（自动提取变量名、系数和P值并统一为0.000格式）：</p>
+                <textarea id="processInput" rows="12" class="w-full border rounded p-2 text-xs font-mono bg-gray-50 focus:bg-white focus:outline-none" placeholder="Run MATRIX procedure..."></textarea>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end gap-2 rounded-b-xl">
+                <button onclick="closeModal()" class="px-4 py-1.5 border rounded text-sm text-gray-600 hover:bg-gray-100">取消</button>
+                <button onclick="parseProcess()" class="px-4 py-1.5 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 shadow">提取并绘图</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 绑定所有输入框事件
+        document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', drawPlot));
+
+        function openModal() {
+            const modal = document.getElementById('processModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0', 'pointer-events-none'); }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('processModal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => { modal.classList.add('hidden'); }, 200);
+        }
+
+        // ================= PROCESS 解析引擎 (强制3位小数) =================
+        function parseProcess() {
+            const text = document.getElementById('processInput').value;
+            if (!text.includes("Model  : 4") && !text.includes("Model : 4")) {
+                alert("未检测到 Model 4 标识！"); return;
+            }
+
+            const varYMatch = text.match(/Y\s*:\s*(\w+)/);
+            const varXMatch = text.match(/X\s*:\s*(\w+)/);
+            const varMMatch = text.match(/M\s*:\s*(\w+)/);
+            
+            if(!varYMatch || !varXMatch || !varMMatch) {
+                alert("解析变量名失败"); return;
+            }
+            const vY = varYMatch[1], vX = varXMatch[1], vM = varMMatch[1];
+
+            const formatNum = (val) => parseFloat(val).toFixed(3);
+
+            const getCoeffAndP = (outcome, predictor) => {
+                const blockRegex = new RegExp(`OUTCOME VARIABLE:\\s*\\n\\s*${outcome}[\\s\\S]*?(?=OUTCOME VARIABLE:|TOTAL EFFECT MODEL|TOTAL, DIRECT|$)`);
+                const blockMatch = text.match(blockRegex);
+                if(!blockMatch) return null;
+                const block = blockMatch[0];
+
+                const rowRegex = new RegExp(`^${predictor}\\s+([\\-\\.\\d]+)\\s+[\\-\\.\\d]+\\s+[\\-\\.\\d]+\\s+([\\-\\.\\d]+)`, 'm');
+                const rowMatch = block.match(rowRegex);
+                if(!rowMatch) return null;
+
+                let pValue = rowMatch[2];
+                let coeff = rowMatch[1];
+
+                const stdBlockMatch = block.match(/Standardized coefficients[\s\S]*?(?=Covariance|$)/);
+                if(stdBlockMatch) {
+                    const stdRowMatch = stdBlockMatch[0].match(new RegExp(`^${predictor}\\s+([\\-\\.\\d]+)`, 'm'));
+                    if(stdRowMatch) coeff = stdRowMatch[1];
+                }
+                return { coeff: formatNum(coeff), p: formatNum(pValue) };
+            };
+
+            const pathA = getCoeffAndP(vM, vX);       
+            const pathB = getCoeffAndP(vY, vM);       
+            const pathC_prime = getCoeffAndP(vY, vX); 
+
+            let pathC = null;
+            const totalBlockMatch = text.match(new RegExp(`TOTAL EFFECT MODEL\\s*\\nOUTCOME VARIABLE:\\s*\\n\\s*${vY}[\\s\\S]*?(?=TOTAL, DIRECT|$)`));
+            if(totalBlockMatch) {
+                const totalBlock = totalBlockMatch[0];
+                const rowMatch = totalBlock.match(new RegExp(`^${vX}\\s+([\\-\\.\\d]+)\\s+[\\-\\.\\d]+\\s+[\\-\\.\\d]+\\s+([\\-\\.\\d]+)`, 'm'));
+                let coeff = rowMatch ? rowMatch[1] : null;
+                let pValue = rowMatch ? rowMatch[2] : null;
+                
+                const stdBlockMatch = totalBlock.match(/Standardized coefficients[\s\S]*?(?=Covariance|$)/);
+                if(stdBlockMatch) {
+                    const stdRowMatch = stdBlockMatch[0].match(new RegExp(`^${vX}\\s+([\\-\\.\\d]+)`, 'm'));
+                    if(stdRowMatch) coeff = stdRowMatch[1];
+                }
+                if(coeff && pValue) pathC = { coeff: formatNum(coeff), p: formatNum(pValue) };
+            }
+
+            document.getElementById('varX').value = vX;
+            document.getElementById('varM').value = vM;
+            document.getElementById('varY').value = vY;
+            if(pathA) { document.getElementById('coeff_a').value = pathA.coeff; document.getElementById('p_a').value = pathA.p; }
+            if(pathB) { document.getElementById('coeff_b').value = pathB.coeff; document.getElementById('p_b').value = pathB.p; }
+            if(pathC_prime) { document.getElementById('coeff_cp').value = pathC_prime.coeff; document.getElementById('p_cp').value = pathC_prime.p; }
+            if(pathC) { document.getElementById('coeff_c').value = pathC.coeff; document.getElementById('p_c').value = pathC.p; }
+
+            drawPlot();
+            closeModal();
+        }
+
+
+        // ================= SVG 绘图核心引擎 =================
+        function getStars(pVal) {
+            const p = parseFloat(pVal);
+            if(isNaN(p)) return "";
+            if(p <= 0.001) return "***";
+            if(p <= 0.01) return "**";
+            if(p <= 0.05) return "*";
+            return "";
+        }
+
+        function formatDisplay(name, coeff, pVal) {
+            if(!coeff) return "";
+            return `${name} = ${parseFloat(coeff).toFixed(3)}${getStars(pVal)}`;
+        }
+
+        function drawPlot() {
+            const vX = document.getElementById('varX').value;
+            const vM = document.getElementById('varM').value;
+            const vY = document.getElementById('varY').value;
+            
+            const strA = formatDisplay('a', document.getElementById('coeff_a').value, document.getElementById('p_a').value);
+            const strB = formatDisplay('b', document.getElementById('coeff_b').value, document.getElementById('p_b').value);
+            const strCp = formatDisplay("c'", document.getElementById('coeff_cp').value, document.getElementById('p_cp').value);
+            const coeff_c_raw = document.getElementById('coeff_c').value;
+            const strC = coeff_c_raw ? `(${formatDisplay('c', coeff_c_raw, document.getElementById('p_c').value)})` : "";
+
+            const font = document.getElementById('fontFamily').value;
+            const strokeW = parseFloat(document.getElementById('strokeWidth').value);
+            const nodeC = document.getElementById('nodeColor').value;
+            const borderC = document.getElementById('borderColor').value;
+            const pathW = parseFloat(document.getElementById('pathWidth').value);
+            
+            const cw = parseFloat(document.getElementById('canvasW').value) || 800;
+            const ch = parseFloat(document.getElementById('canvasH').value) || 350;
+            const nWidth = parseFloat(document.getElementById('nodeWidth').value);
+            const nHeight = parseFloat(document.getElementById('nodeHeight').value);
+            const nFontSize = parseFloat(document.getElementById('nodeFontSize').value);
+            const pFontSize = parseFloat(document.getElementById('pathFontSize').value);
+            const arrSize = parseFloat(document.getElementById('arrowSize').value);
+
+            const offAX = parseFloat(document.getElementById('offAX').value) || 0;
+            const offAY = parseFloat(document.getElementById('offAY').value) || 0;
+            const offBX = parseFloat(document.getElementById('offBX').value) || 0;
+            const offBY = parseFloat(document.getElementById('offBY').value) || 0;
+            const offCX = parseFloat(document.getElementById('offCX').value) || 0;
+            const offCY = parseFloat(document.getElementById('offCY').value) || 0;
+            const offCTotX = parseFloat(document.getElementById('offCTotX').value) || 0;
+            const offCTotY = parseFloat(document.getElementById('offCTotY').value) || 0;
+
+            // 标题属性
+            const tText = document.getElementById('titleText').value;
+            const tX = parseFloat(document.getElementById('titleX').value) || cw / 2;
+            const tY = parseFloat(document.getElementById('titleY').value) || ch - 20;
+            const tSize = parseFloat(document.getElementById('titleSize').value) || 18;
+            const tFont = document.getElementById('titleFont').value;
+            const tColor = document.getElementById('titleColor').value;
+
+            // 动态坐标
+            const xNode = { cx: cw * 0.2, cy: ch * 0.65 };
+            const yNode = { cx: cw * 0.8, cy: ch * 0.65 };
+            const mNode = { cx: cw * 0.5, cy: ch * 0.25 };
+
+            let svg = `<svg id="mainSvg" xmlns="http://www.w3.org/2000/svg" width="${cw}" height="${ch}" viewBox="0 0 ${cw} ${ch}" style="background-color: white; font-family: ${font};">
+                <defs>
+                    <marker id="arrow" markerWidth="${arrSize}" markerHeight="${arrSize}" refX="${arrSize - 1}" refY="${arrSize/2}" orient="auto-start-reverse">
+                        <path d="M 0 0 L ${arrSize} ${arrSize/2} L 0 ${arrSize} z" fill="${borderC}" />
+                    </marker>
+                </defs>
+            `;
+
+            const drawNode = (cx, cy, text) => `
+                <rect x="${cx - nWidth/2}" y="${cy - nHeight/2}" width="${nWidth}" height="${nHeight}" rx="4" fill="${nodeC}" stroke="${borderC}" stroke-width="${strokeW}" />
+                <text x="${cx}" y="${cy + (nFontSize * 0.35)}" text-anchor="middle" fill="${borderC}" font-size="${nFontSize}" font-weight="bold">${text}</text>
+            `;
+
+            // X -> Y
+            svg += `<line x1="${xNode.cx + nWidth/2}" y1="${xNode.cy}" x2="${yNode.cx - nWidth/2 - 2}" y2="${yNode.cy}" stroke="${borderC}" stroke-width="${pathW}" marker-end="url(#arrow)" />`;
+            svg += `<text x="${cw * 0.5 + offCX}" y="${xNode.cy + offCY}" text-anchor="middle" fill="${borderC}" font-size="${pFontSize}" font-style="italic">${strCp}</text>`;
+            if(strC) svg += `<text x="${cw * 0.5 + offCTotX}" y="${xNode.cy + offCTotY}" text-anchor="middle" fill="${borderC}" font-size="${pFontSize}" font-style="italic">${strC}</text>`;
+
+            // X -> M
+            const xmStartX = xNode.cx + nWidth/4;
+            const xmStartY = xNode.cy - nHeight/2;
+            const xmEndX = mNode.cx - nWidth/4;
+            const xmEndY = mNode.cy + nHeight/2;
+            svg += `<line x1="${xmStartX}" y1="${xmStartY}" x2="${xmEndX - 2}" y2="${xmEndY + 2}" stroke="${borderC}" stroke-width="${pathW}" marker-end="url(#arrow)" />`;
+            svg += `<text x="${(xNode.cx + mNode.cx)/2 + offAX}" y="${(xNode.cy + mNode.cy)/2 + offAY}" text-anchor="middle" fill="${borderC}" font-size="${pFontSize}" font-style="italic">${strA}</text>`;
+
+            // M -> Y
+            const myStartX = mNode.cx + nWidth/4;
+            const myStartY = mNode.cy + nHeight/2;
+            const myEndX = yNode.cx - nWidth/4;
+            const myEndY = yNode.cy - nHeight/2;
+            svg += `<line x1="${myStartX}" y1="${myStartY}" x2="${myEndX - 2}" y2="${myEndY - 2}" stroke="${borderC}" stroke-width="${pathW}" marker-end="url(#arrow)" />`;
+            svg += `<text x="${(mNode.cx + yNode.cx)/2 + offBX}" y="${(mNode.cy + yNode.cy)/2 + offBY}" text-anchor="middle" fill="${borderC}" font-size="${pFontSize}" font-style="italic">${strB}</text>`;
+
+            svg += drawNode(xNode.cx, xNode.cy, vX);
+            svg += drawNode(yNode.cx, yNode.cy, vY);
+            svg += drawNode(mNode.cx, mNode.cy, vM);
+
+            // 绘制标题
+            if (tText) {
+                svg += `<text x="${tX}" y="${tY}" text-anchor="middle" fill="${tColor}" font-family="${tFont}" font-size="${tSize}" font-weight="bold">${tText}</text>`;
+            }
+
+            svg += `</svg>`;
+            document.getElementById('svgContainer').innerHTML = svg;
+        }
+
+        window.onload = drawPlot;
+
+        // ================= 导出控制 =================
+        function exportImage(format) {
+            const svgElement = document.getElementById('mainSvg');
+            if(format === 'svg') {
+                const serializer = new XMLSerializer();
+                const svgString = serializer.serializeToString(svgElement);
+                const blob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
+                triggerDownload(blob, `mediation_plot.${format}`);
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(svgElement);
+            const encodedData = encodeURIComponent(svgString);
+
+            img.onload = function() {
+                canvas.width = svgElement.width.baseVal.value * 3; 
+                canvas.height = svgElement.height.baseVal.value * 3;
+                ctx.scale(3, 3);
+                if(format === 'jpeg') { ctx.fillStyle = "white"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+                ctx.drawImage(img, 0, 0);
+                canvas.toBlob(function(blob) { triggerDownload(blob, `mediation_plot.${format}`); }, `image/${format}`, 1.0);
+            };
+            img.src = `data:image/svg+xml;charset=utf-8,${encodedData}`;
+        }
+
+        function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            const svgElement = document.getElementById('mainSvg');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(svgElement);
+            const encodedData = encodeURIComponent(svgString);
+
+            img.onload = function() {
+                canvas.width = svgElement.width.baseVal.value * 4; 
+                canvas.height = svgElement.height.baseVal.value * 4;
+                ctx.scale(4, 4);
+                ctx.fillStyle = "white"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+                
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [svgElement.width.baseVal.value, svgElement.height.baseVal.value] });
+                pdf.addImage(imgData, 'JPEG', 0, 0, svgElement.width.baseVal.value, svgElement.height.baseVal.value);
+                pdf.save("mediation_plot.pdf");
+            };
+            img.src = `data:image/svg+xml;charset=utf-8,${encodedData}`;
+        }
+
+        function triggerDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a); URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
